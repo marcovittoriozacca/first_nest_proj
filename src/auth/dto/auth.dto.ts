@@ -28,3 +28,12 @@ export class AuthDto {
   @IsStrongPassword()
   password: string;
 }
+
+export class LoginDto {
+  @IsNotEmpty()
+  @IsEmail()
+  email: string;
+
+  @IsNotEmpty()
+  password: string;
+}
