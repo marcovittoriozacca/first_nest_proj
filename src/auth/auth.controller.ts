@@ -14,8 +14,7 @@ export class AuthController {
 
   //signup - POST - route at /auth/signup
   @Post('signup')
-  signup(@Body() dto: AuthDto) {
-    console.log(dto);
+  async signup(@Body() dto: AuthDto) {
     return this.authService.signup(dto);
   }
 }
