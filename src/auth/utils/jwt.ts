@@ -1,5 +1,4 @@
 import * as jwt from 'jsonwebtoken';
-import 'dotenv/config';
 
 interface payload {
   id: string;
@@ -7,7 +6,8 @@ interface payload {
 }
 export const signToken = (
   payload: payload,
+  SECRET_KEY: string,
   expiresIn: string | number,
 ): string => {
-  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: expiresIn });
+  return jwt.sign(payload, SECRET_KEY, { expiresIn: expiresIn });
 };
