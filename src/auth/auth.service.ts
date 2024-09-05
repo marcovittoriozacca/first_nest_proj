@@ -4,8 +4,9 @@ import { AuthDto, LoginDto } from './dto';
 import * as argon2 from 'argon2';
 import { User } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import * as jwt from 'jsonwebtoken';
+
 import 'dotenv/config';
+import { signToken } from './utils/jwt';
 
 @Injectable({})
 export class AuthService {
@@ -14,21 +15,31 @@ export class AuthService {
   async login(dto: LoginDto) {
     const { email, password } = dto;
 
-    const user = await this.prisma.user.findFirst({
-      where: { email },
-    });
-    if (!user) throw new ForbiddenException('This email doesnt exist');
+    try {
+      const user = await this.prisma.user.findFirst({
+        where: { email },
+      });
+      if (!user) throw new ForbiddenException('This email doesnt exist');
 
-    const checkPassword = await argon2.verify(user.password, password);
+      const checkPassword = await argon2.verify(user.password, password);
 
-    if (!checkPassword) throw new ForbiddenException('Password is incorrect');
+      if (!checkPassword) throw new ForbiddenException('Password is incorrect');
 
-    const payload = { id: user.id, email: user.email };
+      const payload = { id: user.id, email: user.email };
 
-    const token = jwt.sign(payload, process.env.JWT_SECRET, {
-      expiresIn: '1d',
-    });
-    return { ...user, jwtToken: { token } };
+      const token = signToken(payload, '1d');
+
+      delete user.password;
+      delete user.createdAt;
+      delete user.updatedAt;
+
+      return { ...user, jwtToken: { token } };
+    } catch (err) {
+      if (err instanceof PrismaClientKnownRequestError) {
+        throw new ForbiddenException('Server error');
+      }
+      throw err;
+    }
   }
 
   async signup(dto: AuthDto) {
@@ -49,7 +60,15 @@ export class AuthService {
         data,
       });
 
-      return user;
+      const payload = { id: user.id, email: user.email };
+
+      const token = signToken(payload, '1d');
+
+      delete user.password;
+      delete user.createdAt;
+      delete user.updatedAt;
+
+      return { ...user, jwtToken: { token } };
     } catch (err) {
       if (err instanceof PrismaClientKnownRequestError) {
         if (err.code === 'P2002')
