@@ -4,15 +4,15 @@ import { AuthDto, LoginDto } from './dto';
 import * as argon2 from 'argon2';
 import { User } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-
-import { signToken } from './utils/jwt';
 import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable({})
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
+    private jwt: JwtService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -28,15 +28,9 @@ export class AuthService {
 
       if (!checkPassword) throw new ForbiddenException('Password is incorrect');
 
-      const payload = { id: user.id, email: user.email };
+      const token = this.singToken(user.id, user.email);
 
-      const token = signToken(payload, this.config.get('JWT_SECRET'), '1d');
-
-      delete user.password;
-      delete user.createdAt;
-      delete user.updatedAt;
-
-      return { ...user, jwtToken: { token } };
+      return token;
     } catch (err) {
       if (err instanceof PrismaClientKnownRequestError) {
         throw new ForbiddenException('Server error');
@@ -63,15 +57,9 @@ export class AuthService {
         data,
       });
 
-      const payload = { id: user.id, email: user.email };
+      const token = this.singToken(user.id, user.email);
 
-      const token = signToken(payload, this.config.get('JWT_SECRET'), '1d');
-
-      delete user.password;
-      delete user.createdAt;
-      delete user.updatedAt;
-
-      return { ...user, jwtToken: { token } };
+      return token;
     } catch (err) {
       if (err instanceof PrismaClientKnownRequestError) {
         if (err.code === 'P2002')
@@ -79,5 +67,18 @@ export class AuthService {
       }
       throw err;
     }
+  }
+
+  async singToken(
+    id: string | number,
+    email: string,
+  ): Promise<{ access_token: string }> {
+    const payload = { sub: id, email };
+
+    const token = await this.jwt.signAsync(payload, {
+      expiresIn: '1h',
+      secret: this.config.get('JWT_SECRET'),
+    });
+    return { access_token: token };
   }
 }
